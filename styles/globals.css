@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #000000;
+  --color-accent: #DFC265;
+  --color-secondary: #FFFFFF;
+  --color-highlight: #E5C07B;
+}
+
+* { box-sizing: border-box; }
+body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center px-3 py-2 rounded-md border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-neutral-900 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition; }
+  .btn-primary { @apply bg-black text-white border-black hover:opacity-90; }
+  .btn-accent { @apply bg-[color:var(--color-accent)] text-black hover:opacity-90 border-0; }
+
+  .card { @apply rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-black; }
+  .card-body { @apply p-4; }
+
+  .table { @apply min-w-full text-sm border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden; }
+  .table thead { @apply bg-neutral-50 dark:bg-neutral-900/40; }
+  .table th { @apply text-left p-3 font-medium; }
+  .table td { @apply p-3; }
+  .table tr + tr { @apply border-t border-neutral-200 dark:border-neutral-800; }
+
+  .input { @apply border px-3 py-2 rounded-md outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-black text-white border-neutral-700 placeholder-neutral-400; }
+  .select { @apply border px-3 py-2 rounded-md outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-black text-white border-neutral-700; }
+  .textarea { @apply border px-3 py-2 rounded-md outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] bg-black text-white border-neutral-700; }
+}
