@@ -23,7 +23,9 @@ function LoginInner() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const res = await fetch('/api/login', {
+    const base = process.env.NEXT_PUBLIC_API_BASE || '/'
+    const url = `${base.replace(/\/$/, '/') }api/admin/login`
+    const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
@@ -33,6 +35,12 @@ function LoginInner() {
       const data = await res.json().catch(() => ({}))
       setError(data.error || 'Login failed')
       return
+    }
+    const data = await res.json().catch(() => ({} as any))
+    const token = data?.token as string | undefined
+    if (token) {
+      const oneMonth = 60 * 60 * 24 * 30
+      document.cookie = `admin_token=${token}; Max-Age=${oneMonth}; Path=/; SameSite=Lax; Secure`
     }
     router.replace(next)
   }
