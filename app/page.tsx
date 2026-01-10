@@ -12,6 +12,9 @@ export default function Home() {
         <Card href="/products" title="Products" desc="Add/Edit/Delete products" />
         <Card href="/categories" title="Categories" desc="Manage visibility and order" />
         <Card href="/orders" title="Orders" desc="Preview and manage customer orders" />
+        <Card href="/flash-sale" title="Flash Sale" desc="Configure flash sale status, title and end time" />
+        <Card href="/hero-banner" title="Hero Banner" desc="Manage homepage hero banner text, image and visibility" />
+        <Card href="/requested-products" title="Requested Products" desc="Review and manage customer product requests" />
       </div>
     </div>
   );

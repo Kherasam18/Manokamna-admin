@@ -103,6 +103,11 @@ export default function EditProductPage() {
     e.preventDefault()
     setSaving(true)
     setError(null)
+    // If a base salePrice is set, variants inherit the same discount percentage.
+    // In that case, interpret each variant's entered 'price' as the sale price, and
+    // compute the original price by reversing the base discount factor.
+    const hasBaseDiscount = salePrice !== '' && Number(price) > 0
+    const discountFactor = hasBaseDiscount ? (Number(salePrice) / Number(price)) : null
     const body = {
       title, description, brand,
       categoryId: typeof categoryId === 'number' ? categoryId : Number(categoryId),
@@ -116,7 +121,14 @@ export default function EditProductPage() {
       baseSize: baseSize || undefined,
       variants: variants
         .filter(v => v.size && v.price !== '')
-        .map(v => ({ size: v.size, price: typeof v.price === 'number' ? v.price : Number(v.price), ...(v.image ? { image: v.image } : {}) })),
+        .map(v => {
+          const entered = typeof v.price === 'number' ? v.price : Number(v.price)
+          if (discountFactor && isFinite(entered)) {
+            const orig = Math.max(0, Math.round(entered / (discountFactor as number)))
+            return { size: v.size, price: orig, salePrice: entered, ...(v.image ? { image: v.image } : {}) }
+          }
+          return { size: v.size, price: entered, ...(v.image ? { image: v.image } : {}) }
+        }),
       bestSeller: bestSeller === 'yes'
     }
     const res = await fetch(`/api/admin/products/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })

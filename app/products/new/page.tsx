@@ -54,6 +54,8 @@ export default function NewProductPage() {
     e.preventDefault()
     setError(null)
     setLoading(true)
+    const hasBaseDiscount = salePrice !== '' && Number(price) > 0
+    const discountFactor = hasBaseDiscount ? (Number(salePrice) / Number(price)) : null
     const body = {
       title, description, brand,
       categoryId: typeof categoryId === 'number' ? categoryId : Number(categoryId),
@@ -66,11 +68,23 @@ export default function NewProductPage() {
       baseSize: baseSize || undefined,
       variants: variants
         .filter(v => v.price !== '')
-        .map(v => ({
-          ...(v.size ? { size: v.size } : {}),
-          price: typeof v.price === 'number' ? v.price : Number(v.price),
-          ...(v.image ? { image: v.image } : {})
-        })),
+        .map(v => {
+          const entered = typeof v.price === 'number' ? v.price : Number(v.price)
+          if (discountFactor && isFinite(entered)) {
+            const orig = Math.max(0, Math.round(entered / (discountFactor as number)))
+            return {
+              ...(v.size ? { size: v.size } : {}),
+              price: orig,
+              salePrice: entered,
+              ...(v.image ? { image: v.image } : {})
+            }
+          }
+          return {
+            ...(v.size ? { size: v.size } : {}),
+            price: entered,
+            ...(v.image ? { image: v.image } : {})
+          }
+        }),
       bestSeller: bestSeller === 'yes'
     }
     const res = await fetch('/api/admin/products', {
