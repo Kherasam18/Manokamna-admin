@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useMemo, useState } from 'react'
 
-type Category = { id: number; name: string; visible?: boolean; sort?: number }
+type Category = { id: number; name: string; icon?: string | null; visible?: boolean; sort?: number }
 
 export default function CategoriesPage() {
   const [items, setItems] = useState<Category[]>([])
@@ -11,7 +11,9 @@ export default function CategoriesPage() {
 
   const [newName, setNewName] = useState('')
   const [newId, setNewId] = useState<number | ''>('')
+  const [newIcon, setNewIcon] = useState('')
 
+  
   useEffect(() => {
     refresh()
   }, [])
@@ -27,10 +29,24 @@ export default function CategoriesPage() {
     return [...items].sort((a,b) => (a.sort ?? 0) - (b.sort ?? 0))
   }, [items])
 
+  function getApiBase() {
+    const base = process.env.NEXT_PUBLIC_API_BASE || '/'
+    return base.replace(/\/$/, '/')
+  }
+
+  function getAdminToken() {
+    const m = document.cookie.match(/(?:^|; )admin_token=([^;]+)/)
+    return m ? decodeURIComponent(m[1]) : ''
+  }
+
   async function refresh() {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/categories', { cache: 'no-store' })
+      const token = getAdminToken()
+      const res = await fetch(`${getApiBase()}api/admin/categories`, {
+        cache: 'no-store',
+        headers: { Authorization: token ? `Bearer ${token}` : '' }
+      })
       const data = await res.json().catch(() => [])
       setItems(data)
     } finally {
@@ -41,19 +57,33 @@ export default function CategoriesPage() {
   async function createCategory() {
     setError(null)
     if (!newName.trim() || newId === '') return
-    const body = { id: typeof newId === 'number' ? newId : Number(newId), name: newName.trim() }
-    const res = await fetch('/api/admin/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const body = {
+      id: typeof newId === 'number' ? newId : Number(newId),
+      name: newName.trim(),
+      icon: newIcon.trim() ? newIcon.trim() : null
+    }
+    const token = getAdminToken()
+    const res = await fetch(`${getApiBase()}api/admin/categories`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      body: JSON.stringify(body)
+    })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
       setError(d.error || 'Create failed')
       return
     }
-    setNewId(''); setNewName(''); setToast('Category added')
+    setNewId(''); setNewName(''); setNewIcon(''); setToast('Category added')
     refresh()
   }
 
   async function saveRow(c: Category) {
-    const res = await fetch(`/api/admin/categories/${c.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(c) })
+    const token = getAdminToken()
+    const res = await fetch(`${getApiBase()}api/admin/categories/${c.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      body: JSON.stringify({ ...c, icon: c.icon?.trim() ? c.icon.trim() : null })
+    })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
       setError(d.error || 'Save failed')
@@ -65,7 +95,11 @@ export default function CategoriesPage() {
 
   async function deleteRow(id: number) {
     if (!confirm('Delete this category?')) return
-    const res = await fetch(`/api/admin/categories/${id}`, { method: 'DELETE' })
+    const token = getAdminToken()
+    const res = await fetch(`${getApiBase()}api/admin/categories/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: token ? `Bearer ${token}` : '' }
+    })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
       setError(d.error || 'Delete failed')
@@ -89,6 +123,7 @@ export default function CategoriesPage() {
         <div className="flex gap-2 flex-wrap">
           <input className="input w-32" placeholder="ID (number)" type="number" value={newId} onChange={e => setNewId(e.target.value === '' ? '' : Number(e.target.value))} />
           <input className="input w-80" placeholder="Name" value={newName} onChange={e => setNewName(e.target.value)} />
+          <input className="input w-[28rem]" placeholder="Image URL (optional)" value={newIcon} onChange={e => setNewIcon(e.target.value)} />
           <button className="btn btn-primary" onClick={createCategory}>Add</button>
         </div>
       </div>
@@ -101,6 +136,7 @@ export default function CategoriesPage() {
               <tr>
                 <th className="text-left p-3">ID</th>
                 <th className="text-left p-3">Name</th>
+                <th className="text-left p-3">Image</th>
                 <th className="text-left p-3">Visible</th>
                 <th className="text-left p-3">Sort</th>
                 <th className="text-left p-3">Actions</th>
@@ -112,6 +148,9 @@ export default function CategoriesPage() {
                   <td className="p-3">{c.id}</td>
                   <td className="p-3">
                     <input className="input w-64" value={c.name} onChange={e => updateLocal(c.id, { name: e.target.value })} />
+                  </td>
+                  <td className="p-3">
+                    <input className="input w-[28rem]" placeholder="Image URL (optional)" value={c.icon ?? ''} onChange={e => updateLocal(c.id, { icon: e.target.value })} />
                   </td>
                   <td className="p-3">
                     <label className="inline-flex items-center gap-2">
