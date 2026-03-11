@@ -7,7 +7,7 @@ type Order = { _id: string; createdAt: string; status: string; amount: number; u
 export default function OrdersPage() {
   const [items, setItems] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState<'all' | 'pending' | 'delivered' | 'recheck' | 'cod' | 'paid_upi' | 'paid_card'>('all')
+  const [status, setStatus] = useState<'all' | 'pending' | 'delivered' | 'recheck'>('all')
   const [q, setQ] = useState('')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
@@ -42,9 +42,6 @@ export default function OrdersPage() {
           <option value="pending">Pending</option>
           <option value="delivered">Delivered</option>
           <option value="recheck">Recheck</option>
-          <option value="cod">COD</option>
-          <option value="paid_upi">Paid by UPI</option>
-          <option value="paid_card">Paid by Card</option>
         </select>
         <input type="date" className="input" value={from} onChange={e => setFrom(e.target.value)} />
         <input type="date" className="input" value={to} onChange={e => setTo(e.target.value)} />

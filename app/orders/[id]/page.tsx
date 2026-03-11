@@ -127,7 +127,6 @@ export default function OrderDetailPage() {
           <div className="text-sm">Date: {new Date(order.createdAt).toLocaleString()}</div>
           <div className="text-sm">Status: {order.status}</div>
           {order.gstNumber && <div className="text-sm">GST Number: {order.gstNumber}</div>}
-          <div className="text-sm">Payment: {order.paymentMethod === 'paid_upi' ? 'Paid by UPI' : order.paymentMethod === 'paid_card' ? 'Paid by Card' : 'COD'}</div>
           <div className="text-sm">
             Address: {(() => {
               const a: any = order.addressSnapshot || {}
