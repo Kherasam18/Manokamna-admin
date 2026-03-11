@@ -11,6 +11,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<string | null>(null)
   const [selected, setSelected] = useState<Record<string, boolean>>({})
+  const [deleting, setDeleting] = useState(false)
   const [importing, setImporting] = useState(false)
   const [file, setFile] = useState<File | null>(null)
 
@@ -157,6 +158,39 @@ export default function ProductsPage() {
               }
             }}
           >Apply</button>
+          <button
+            className="px-3 py-2 rounded border hover:bg-neutral-50 disabled:opacity-50"
+            disabled={deleting}
+            onClick={async () => {
+              const pickIds = filtered.filter(p => selected[p._id]).map(p => p._id)
+              const productIds = (allSelected || pickIds.length === 0) ? [] : pickIds
+              if (!allSelected && productIds.length === 0) { setToast('Select at least one product'); return }
+              if (!confirm(`Delete ${allSelected ? 'ALL filtered' : productIds.length} products?`)) return
+
+              try {
+                setDeleting(true)
+                const res = await fetch('/api/admin/products/bulk-delete', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ productIds: allSelected ? filtered.map(p => p._id) : productIds })
+                })
+                const data = await res.json().catch(() => ({}))
+                if (res.ok) {
+                  const deleted = allSelected ? new Set(filtered.map(p => p._id)) : new Set(productIds)
+                  setItems(prev => prev.filter(p => !deleted.has(p._id)))
+                  setSelected({})
+                  const count = data.deletedCount ?? deleted.size
+                  setToast(`Deleted ${count} products`)
+                } else {
+                  setToast(data.error || 'Failed to delete products')
+                }
+              } catch {
+                setToast('Failed to delete products')
+              } finally {
+                setDeleting(false)
+              }
+            }}
+          >{deleting ? 'Deleting…' : 'Delete'}</button>
         </div>
       </div>
       <div className="overflow-x-auto">
