@@ -102,10 +102,13 @@ export default function OrderDetailPage() {
                 // Prefer actual names and snapshots; do NOT fall back to primitive productId (to avoid showing ids)
                 const pnameRaw = (prod?.name || prod?.title || anyLi?.name || anyLi?.title || '') as string
                 const pname = String(pnameRaw || '').trim() || '-'
+                                const sizeRaw = (anyLi?.variantSize || anyLi?.size || anyLi?.variant || '') as string
+                const size = String(sizeRaw || '').trim()
                 const productLabel = brand ? `${brand} • ${pname}` : pname
+                const productLabelWithSize = size ? `${productLabel} • ${size}` : productLabel
                 return (
                   <tr key={idx} className="border-t border-neutral-200 dark:border-neutral-800">
-                    <td className="p-2">{productLabel}</td>
+                    <td className="p-2">{productLabelWithSize}</td>
                     <td className="p-2">{li.qty}</td>
                     <td className="p-2">₹{li.price}</td>
                   </tr>
