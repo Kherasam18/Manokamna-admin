@@ -23,8 +23,9 @@ function LoginInner() {
     e.preventDefault()
     setError(null)
     setLoading(true)
-    const base = process.env.NEXT_PUBLIC_API_BASE || '/'
-    const url = `${base.replace(/\/$/, '/') }api/admin/login`
+    
+    const url = '/api/login'
+    
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
