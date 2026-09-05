@@ -29,26 +29,29 @@ export default function CategoriesPage() {
     return [...items].sort((a,b) => (a.sort ?? 0) - (b.sort ?? 0))
   }, [items])
 
-  function getApiBase() {
-    const base = process.env.NEXT_PUBLIC_API_BASE || '/'
-    return base.replace(/\/$/, '/')
-  }
+  // function getApiBase() {
+  //   const base = process.env.NEXT_PUBLIC_API_BASE || '/'
+  //   return base.replace(/\/$/, '/')
+  // }
 
-  function getAdminToken() {
-    const m = document.cookie.match(/(?:^|; )admin_token=([^;]+)/)
-    return m ? decodeURIComponent(m[1]) : ''
-  }
+  // function getAdminToken() {
+  //   const m = document.cookie.match(/(?:^|; )admin_token=([^;]+)/)
+  //   return m ? decodeURIComponent(m[1]) : ''
+  // }
 
   async function refresh() {
     setLoading(true)
     try {
-      const token = getAdminToken()
-      const res = await fetch(`${getApiBase()}api/admin/categories`, {
-        cache: 'no-store',
-        headers: { Authorization: token ? `Bearer ${token}` : '' }
+      // const token = getAdminToken()
+      // const res = await fetch(`${getApiBase()}api/admin/categories`, {
+      //   cache: 'no-store',
+      //   headers: { Authorization: token ? `Bearer ${token}` : '' }
+            const res = await fetch(`/api/admin/categories`, {
+        cache: 'no-store'
       })
       const data = await res.json().catch(() => [])
-      setItems(data)
+      // setItems(data)
+      setItems(Array.isArray(data) ? data : [])
     } finally {
       setLoading(false)
     }
@@ -62,10 +65,12 @@ export default function CategoriesPage() {
       name: newName.trim(),
       icon: newIcon.trim() ? newIcon.trim() : null
     }
-    const token = getAdminToken()
-    const res = await fetch(`${getApiBase()}api/admin/categories`, {
+    // const token = getAdminToken()
+    // const res = await fetch(`${getApiBase()}api/admin/categories`, {
+    const res = await fetch(`/api/admin/categories`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      // headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
     })
     if (!res.ok) {
@@ -78,10 +83,12 @@ export default function CategoriesPage() {
   }
 
   async function saveRow(c: Category) {
-    const token = getAdminToken()
-    const res = await fetch(`${getApiBase()}api/admin/categories/${c.id}`, {
+    // const token = getAdminToken()
+    // const res = await fetch(`${getApiBase()}api/admin/categories/${c.id}`, {
+    const res = await fetch(`/api/admin/categories/${c.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      // headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...c, icon: c.icon?.trim() ? c.icon.trim() : null })
     })
     if (!res.ok) {
@@ -95,10 +102,12 @@ export default function CategoriesPage() {
 
   async function deleteRow(id: number) {
     if (!confirm('Delete this category?')) return
-    const token = getAdminToken()
-    const res = await fetch(`${getApiBase()}api/admin/categories/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: token ? `Bearer ${token}` : '' }
+    // const token = getAdminToken()
+    // const res = await fetch(`${getApiBase()}api/admin/categories/${id}`, {
+    //   method: 'DELETE',
+    //   headers: { Authorization: token ? `Bearer ${token}` : '' }
+    const res = await fetch(`/api/admin/categories/${id}`, {
+      method: 'DELETE'
     })
     if (!res.ok) {
       const d = await res.json().catch(() => ({}))
