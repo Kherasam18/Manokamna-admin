@@ -47,7 +47,6 @@ export default function EditProductPage() {
   const [imageUrl, setImageUrl] = useState('')
   const [visible, setVisible] = useState<boolean>(true)
   const [bestSeller, setBestSeller] = useState<'yes' | 'no'>('no')
-  // const [variants, setVariants] = useState<Array<{ size: string; price: number | ''; image?: string }>>([])
   const [variants, setVariants] = useState<Array<{ size: string; price: number | ''; salePrice: number | ''; image?: string }>>([])
   const [baseSize, setBaseSize] = useState('')
 
@@ -70,7 +69,6 @@ export default function EditProductPage() {
         setImages(p.images ?? [])
         setVisible(p.visible ?? true)
         setBestSeller(p.bestSeller ? 'yes' : 'no')
-        // const vs = Array.isArray(p.variants) ? p.variants.map((v: any) => ({ size: v.size || '', price: typeof v.price === 'number' ? v.price : Number(v.price || 0), image: typeof v.image === 'string' ? v.image : '' })) : []
         const vs = Array.isArray(p.variants) ? p.variants.map((v: any) => ({ size: v.size || '', price: typeof v.price === 'number' ? v.price : Number(v.price || 0), salePrice: typeof v.salePrice === 'number' ? v.salePrice : (v.salePrice != null ? Number(v.salePrice) : ''), image: typeof v.image === 'string' ? v.image : '' })) : []
         setVariants(vs)
         setBaseSize(p.baseSize || '')
@@ -105,11 +103,6 @@ export default function EditProductPage() {
     e.preventDefault()
     setSaving(true)
     setError(null)
-    // // If a base salePrice is set, variants inherit the same discount percentage.
-    // // In that case, interpret each variant's entered 'price' as the sale price, and
-    // // compute the original price by reversing the base discount factor.
-    // const hasBaseDiscount = salePrice !== '' && Number(price) > 0
-    // const discountFactor = hasBaseDiscount ? (Number(salePrice) / Number(price)) : null
     const body = {
       title, description, brand,
       categoryId: typeof categoryId === 'number' ? categoryId : Number(categoryId),
@@ -124,12 +117,6 @@ export default function EditProductPage() {
       variants: variants
         .filter(v => v.size && v.price !== '')
         .map(v => {
-          // const entered = typeof v.price === 'number' ? v.price : Number(v.price)
-          // if (discountFactor && isFinite(entered)) {
-          //   const orig = Math.max(0, Math.round(entered / (discountFactor as number)))
-          //   return { size: v.size, price: orig, salePrice: entered, ...(v.image ? { image: v.image } : {}) }
-          // }
-          // return { size: v.size, price: entered, ...(v.image ? { image: v.image } : {}) }
           const mrp = typeof v.price === 'number' ? v.price : Number(v.price)
           const sale = v.salePrice !== '' ? (typeof v.salePrice === 'number' ? v.salePrice : Number(v.salePrice)) : undefined
           return { size: v.size, price: mrp, ...(sale != null ? { salePrice: sale } : {}), ...(v.image ? { image: v.image } : {}) }
@@ -199,7 +186,6 @@ export default function EditProductPage() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-sm font-medium">Variants</label>
-            {/* <button type="button" className="px-3 py-1 rounded border text-sm" onClick={() => setVariants(v => [...v, { size: '', price: '' }])}>Add Variant</button> */}
             <button type="button" className="px-3 py-1 rounded border text-sm" onClick={() => setVariants(v => [...v, { size: '', price: '', salePrice: '' }])}>Add Variant</button>
           </div>
           {variants.length === 0 && (
@@ -207,61 +193,92 @@ export default function EditProductPage() {
           )}
           <div className="space-y-2">
             {variants.map((v, i) => (
-              // <div key={i} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
               <div key={i} className="space-y-2 p-3 border rounded">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
-                <input className="input md:col-span-3" placeholder="Size (e.g., 50ml)" value={v.size} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, size: e.target.value } : it))} />
-                {/* <input className="input md:col-span-2" placeholder="Price" type="number" min={0} value={v.price} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, price: e.target.value === '' ? '' : Number(e.target.value) } : it))} />
-                <div className="md:col-span-5 flex items-center gap-2 min-w-0">
-                  <input className="input flex-1 min-w-0" placeholder="Variant image URL (optional)" value={v.image || ''} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: e.target.value } : it))} /> */}
+                  <input className="input md:col-span-3" placeholder="Size (e.g., 50ml)" value={v.size} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, size: e.target.value } : it))} />
                   <input className="input md:col-span-2" placeholder="MRP" type="number" min={0} value={v.price} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, price: e.target.value === '' ? '' : Number(e.target.value) } : it))} />
                   <input className="input md:col-span-2" placeholder="Sale Price" type="number" min={0} value={v.salePrice} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, salePrice: e.target.value === '' ? '' : Number(e.target.value) } : it))} />
                   <div className="md:col-span-4 flex items-center gap-2 min-w-0">
                     <input className="input flex-1 min-w-0" placeholder="Image URL (optional)" value={v.image || ''} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: e.target.value } : it))} />
-                  {!!v.image && (
-                    <div className="w-10 h-10 border rounded overflow-hidden shrink-0">
-                      <img src={v.image} alt="variant" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-                </div>
-                {/* <input className="md:col-span-1 w-full" type="file" onChange={async e => { */}
-                <button type="button" className="px-3 py-2 rounded border md:col-span-1" onClick={() => setVariants(arr => arr.filter((_, idx) => idx !== i))}>Remove</button>
+                    {!!v.image && (
+                      <div className="w-10 h-10 border rounded overflow-hidden shrink-0">
+                        <img src={v.image} alt="variant" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" className="px-3 py-2 rounded border md:col-span-1" onClick={() => setVariants(arr => arr.filter((_, idx) => idx !== i))}>Remove</button>
                 </div>
                 <div className="flex items-center gap-2">
                   <input className="w-full" type="file" onChange={async e => {
-                  const f = e.target.files?.[0]
-                  if (!f) return
-                  try {
-                    const url = await uploadFile(f)
-                    setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: url } : it))
-                  } catch { /* ignore */ }
-                }} />
-                {/* <button type="button" className="px-3 py-2 rounded border md:col-span-1" onClick={() => setVariants(arr => arr.filter((_, idx) => idx !== i))}>Remove</button> */}
+                    const f = e.target.files?.[0]
+                    if (!f) return
+                    try {
+                      const url = await uploadFile(f)
+                      setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: url } : it))
+                    } catch { /* ignore */ }
+                  }} />
                 </div>
               </div>
             ))}
           </div>
-          {/* <div className="text-xs text-gray-500">Variants inherit the same discount percentage as the main product if a Sale Price is set.</div> */}
-            <div className="text-xs text-gray-500">Each variant has its own MRP and Sale Price. Size and image are optional.</div>
+          <div className="text-xs text-gray-500">Each variant has its own MRP and Sale Price. Size and image are optional.</div>
         </div>
         <div>
           <label className="block text-sm mb-1">Images</label>
           <div className="flex gap-2 items-center">
-            <input className="input flex-1" placeholder="Paste image URL and click Add" value={imageUrl} onChange={e => setImageUrl(e.target.value)} />
-            <button type="button" className="px-3 py-2 rounded border" onClick={() => {
-              const u = imageUrl.trim()
-              if (!u) return
-              setImages(prev => [...prev, u])
-              setImageUrl('')
-            }}>Add</button>
+            <input
+              className="input flex-1"
+              placeholder="Paste direct image URL (jpg, png, webp) and click Add"
+              value={imageUrl}
+              onChange={e => setImageUrl(e.target.value)}
+            />
+            <button
+              type="button"
+              className="px-3 py-2 rounded border hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => {
+                const u = imageUrl.trim()
+                if (!u) return
+                if (u.includes('google.com/search') || u.includes('bing.com/search')) {
+                  setError('Please enter a direct image URL (e.g. ending with .jpg, .png, etc.), not a Google search results page link.')
+                  return
+                }
+                setImages(prev => [...prev, u])
+                setImageUrl('')
+                setError(null)
+              }}
+            >
+              Add
+            </button>
           </div>
-          <input type="file" accept="image/*" onChange={handleUpload} />
-          <div className="flex gap-2 mt-2 flex-wrap">
-            {images.map((url, i) => (
-              <div key={i} className="w-24 h-24 border rounded overflow-hidden">
-                <img src={url} alt="img" className="w-full h-full object-cover" />
-              </div>
-            ))}
+          <div className="mt-2">
+            <input type="file" accept="image/*" onChange={handleUpload} />
+          </div>
+          <div className="flex gap-3 mt-3 flex-wrap">
+            {images.map((url, i) => {
+              const fullUrl = url.startsWith('http')
+                ? url
+                : `${process.env.NEXT_PUBLIC_API_BASE || 'https://api.manokamnabeautycentre.org'}${url.startsWith('/') ? '' : '/'}${url}`
+              return (
+                <div key={i} className="relative group w-24 h-24 border rounded overflow-hidden bg-white shrink-0 shadow-sm">
+                  <img
+                    src={fullUrl}
+                    alt={`Product image ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?q=80&w=200&auto=format&fit=crop'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition shadow"
+                    title="Remove image"
+                    onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                  >
+                    &times;
+                  </button>
+                </div>
+              )
+            })}
           </div>
         </div>
         <div className="flex gap-2">

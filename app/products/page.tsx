@@ -1,391 +1,225 @@
 "use client"
-import Link from 'next/link'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 
-type Product = { _id: string; title: string; brand: string; categoryId: number; price: number; salePrice?: number; stock: number; visible?: boolean }
-type Category = { id: number; name: string }
+async function fetchCategories() {
+  const res = await fetch('/api/admin/categories', { cache: 'no-store' })
+  if (!res.ok) return []
+  return res.json()
+}
 
-const PAGE_SIZE = 20
+async function uploadFile(file: File) {
+  const form = new FormData()
+  form.append('file', file)
+  const res = await fetch('/api/admin/uploads', { method: 'POST', body: form })
+  if (!res.ok) throw new Error('Upload failed')
+  const data = await res.json()
+  return data.url as string
+}
 
-export default function ProductsPage() {
-  const [items, setItems] = useState<Product[]>([])
-  const [cats, setCats] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [total, setTotal] = useState(0)
-  const [page, setPage] = useState(1)
-  const [toast, setToast] = useState<string | null>(null)
-  const [selected, setSelected] = useState<Record<string, boolean>>({})
-  const [deleting, setDeleting] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
+export default function NewProductPage() {
+  const router = useRouter()
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [brand, setBrand] = useState('')
+  const [categoryId, setCategoryId] = useState<number | ''>('')
+  const [price, setPrice] = useState<number | ''>('')
+  const [salePrice, setSalePrice] = useState<number | ''>('')
+  const [stock, setStock] = useState<number | ''>('')
+  const [itemsLeft, setItemsLeft] = useState<number | ''>('')
+  const [daysLeftInExpiry, setDaysLeftInExpiry] = useState<number | ''>('')
+  const [images, setImages] = useState<string[]>([])
+  const [imageUrl, setImageUrl] = useState('')
+  const [cats, setCats] = useState<any[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [bestSeller, setBestSeller] = useState<'yes' | 'no'>('no')
+  const [variants, setVariants] = useState<Array<{ size?: string; price: number | ''; salePrice: number | ''; image?: string }>>([])
+  const [baseSize, setBaseSize] = useState('')
 
-  const [searchInput, setSearchInput] = useState('')
-  const [q, setQ] = useState('')
-  const [cat, setCat] = useState<number | 'all'>('all')
-  const [vis, setVis] = useState<'all' | 'visible' | 'hidden'>('all')
-  const [sort, setSort] = useState<'title' | 'price-asc' | 'price-desc' | 'stock-desc'>('title')
-  const [discount, setDiscount] = useState<string>('')
+  useEffect(() => { fetchCategories().then(setCats) }, [])
 
-  // Debounce search query changes to prevent excessive requests
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setQ(searchInput)
-      setPage(1)
-      setSelected({})
-    }, 350)
-    return () => clearTimeout(t)
-  }, [searchInput])
-
-  async function reloadProducts(
-    targetPage = page,
-    query = q,
-    category = cat,
-    visibility = vis,
-    sortOrder = sort
-  ) {
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (!f) return
     try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      params.set('take', String(PAGE_SIZE))
-      params.set('skip', String(Math.max(0, (targetPage - 1) * PAGE_SIZE)))
-      if (query.trim()) params.set('q', query.trim())
-      if (category !== 'all') params.set('cat', String(category))
-      if (visibility !== 'all') params.set('vis', visibility)
-      if (sortOrder) params.set('sort', sortOrder)
-
-      const [pRes, cRes] = await Promise.all([
-        fetch(`/api/admin/products?${params.toString()}`, { cache: 'no-store' }),
-        fetch('/api/admin/categories', { cache: 'no-store' })
-      ])
-      const p = await pRes.json().catch(() => ({ items: [], total: 0 }))
-      const c = await cRes.json().catch(() => [])
-      setItems(p.items || [])
-      setTotal(typeof p.total === 'number' ? p.total : (p.items?.length || 0))
-      setCats(c)
-    } finally {
-      setLoading(false)
+      const url = await uploadFile(f)
+      setImages(prev => [...prev, url])
+    } catch (e: any) {
+      setError(e.message || 'Upload failed')
     }
   }
 
-  useEffect(() => {
-    reloadProducts(page, q, cat, vis, sort)
-  }, [page, q, cat, vis, sort])
-
-  useEffect(() => {
-    if (toast) {
-      const t = setTimeout(() => setToast(null), 1800)
-      return () => clearTimeout(t)
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    const body = {
+      title, description, brand,
+      categoryId: typeof categoryId === 'number' ? categoryId : Number(categoryId),
+      price: typeof price === 'number' ? price : Number(price),
+      salePrice: salePrice === '' ? undefined : (typeof salePrice === 'number' ? salePrice : Number(salePrice)),
+      stock: typeof stock === 'number' ? stock : Number(stock),
+      itemsLeft: itemsLeft === '' ? undefined : (typeof itemsLeft === 'number' ? itemsLeft : Number(itemsLeft)),
+      daysLeftInExpiry: daysLeftInExpiry === '' ? undefined : (typeof daysLeftInExpiry === 'number' ? daysLeftInExpiry : Number(daysLeftInExpiry)),
+      images,
+      baseSize: baseSize || undefined,
+      variants: variants
+        .filter(v => v.price !== '')
+        .map(v => {
+          const mrp = typeof v.price === 'number' ? v.price : Number(v.price)
+          const sale = v.salePrice !== '' ? (typeof v.salePrice === 'number' ? v.salePrice : Number(v.salePrice)) : undefined
+          return {
+            ...(v.size ? { size: v.size } : {}),
+            price: mrp,
+            ...(sale != null ? { salePrice: sale } : {}),
+            ...(v.image ? { image: v.image } : {})
+          }
+        }),
+      bestSeller: bestSeller === 'yes'
     }
-  }, [toast])
-
-  const filtered = useMemo(() => {
-    let list = items
-    if (q.trim()) {
-      const s = q.trim().toLowerCase()
-      list = list.filter(p => `${p.title} ${p.brand}`.toLowerCase().includes(s))
+    const res = await fetch('/api/admin/products', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    })
+    setLoading(false)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Save failed')
+      return
     }
-    if (cat !== 'all') list = list.filter(p => p.categoryId === cat)
-    if (vis !== 'all') list = list.filter(p => (vis === 'visible' ? (p.visible ?? true) : !(p.visible ?? true)))
-    switch (sort) {
-      case 'price-asc': list = [...list].sort((a,b) => (a.salePrice ?? a.price) - (b.salePrice ?? b.price)); break
-      case 'price-desc': list = [...list].sort((a,b) => (b.salePrice ?? b.price) - (a.salePrice ?? a.price)); break
-      case 'stock-desc': list = [...list].sort((a,b) => (b.stock) - (a.stock)); break
-      default: list = [...list].sort((a,b) => a.title.localeCompare(b.title))
-    }
-    return list
-  }, [items, q, cat, vis, sort])
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
-  const startItem = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
-  const endItem = Math.min(page * PAGE_SIZE, total)
-
-  const allSelected = useMemo(() => filtered.length > 0 && filtered.every(p => selected[p._id]), [selected, filtered])
-
-  const changePage = (newPage: number) => {
-    if (newPage < 1 || newPage > totalPages || newPage === page) return
-    setSelected({})
-    setPage(newPage)
-  }
-
-  function getPageNumbers(): (number | string)[] {
-    if (totalPages <= 7) {
-      return Array.from({ length: totalPages }, (_, i) => i + 1)
-    }
-    const pages: (number | string)[] = [1]
-    if (page > 3) pages.push('...')
-    const start = Math.max(2, page - 1)
-    const end = Math.min(totalPages - 1, page + 1)
-    for (let i = start; i <= end; i++) {
-      pages.push(i)
-    }
-    if (page < totalPages - 2) pages.push('...')
-    pages.push(totalPages)
-    return pages
+    router.replace('/products')
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-semibold">Products</h2>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 font-medium">
-            Total: {total}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/products/new" className="px-3 py-2 rounded bg-black text-white hover:opacity-90">New Product</Link>
-          <label className="px-3 py-2 rounded border cursor-pointer">
-            <input type="file" accept=".csv" className="hidden" onChange={e => setFile(e.target.files?.[0] || null)} />
-            {file ? file.name : 'Choose CSV'}
-          </label>
-          <button
-            className="px-3 py-2 rounded bg-black text-white hover:opacity-90 disabled:opacity-50"
-            disabled={!file || importing}
-            onClick={async () => {
-              if (!file) return
-              try {
-                setImporting(true)
-                const fd = new FormData()
-                fd.append('file', file)
-                const res = await fetch('/api/admin/products/import', { method: 'POST', body: fd })
-                const data = await res.json().catch(() => ({}))
-                if (res.ok) {
-                  setToast(`Imported: ${data.created || 0}, Updated: ${data.updated || 0}`)
-                  setFile(null)
-                  setPage(1)
-                  await reloadProducts(1)
-                } else {
-                  setToast(data.error || 'Import failed')
-                }
-              } catch {
-                setToast('Import failed')
-              } finally {
-                setImporting(false)
-              }
-            }}
-          >{importing ? 'Importing…' : 'Import CSV'}</button>
-        </div>
-      </div>
-
-      {toast && <div className="px-3 py-2 rounded bg-green-600 text-white text-sm">{toast}</div>}
-
-      <div className="flex gap-2 flex-wrap items-center">
-        <input
-          className="input w-64"
-          placeholder="Search title or brand"
-          value={searchInput}
-          onChange={e => setSearchInput(e.target.value)}
-        />
-        <select
-          className="select"
-          value={cat}
-          onChange={e => {
-            setCat(e.target.value === 'all' ? 'all' : Number(e.target.value))
-            setPage(1)
-            setSelected({})
-          }}
-        >
-          <option value="all">All categories</option>
-          {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
-          className="select"
-          value={vis}
-          onChange={e => {
-            setVis(e.target.value as any)
-            setPage(1)
-            setSelected({})
-          }}
-        >
-          <option value="all">All visibility</option>
-          <option value="visible">Visible</option>
-          <option value="hidden">Hidden</option>
-        </select>
-        <select
-          className="select"
-          value={sort}
-          onChange={e => {
-            setSort(e.target.value as any)
-            setPage(1)
-            setSelected({})
-          }}
-        >
-          <option value="title">Title A→Z</option>
-          <option value="price-asc">Price Low→High</option>
-          <option value="price-desc">Price High→Low</option>
-          <option value="stock-desc">Stock High→Low</option>
-        </select>
-        <div className="flex items-center gap-2">
-          <input className="input w-36" placeholder="Give Discount (%)" value={discount} onChange={e => setDiscount(e.target.value)} />
-          <button
-            className="px-3 py-2 rounded bg-black text-white hover:opacity-90 disabled:opacity-50"
-            disabled={!discount.trim() || isNaN(Number(discount))}
-            onClick={async () => {
-              const pct = Number(discount)
-              const pickIds = filtered.filter(p => selected[p._id]).map(p => p._id)
-              const productIds = (allSelected || pickIds.length === 0) ? [] : pickIds
-              if (!allSelected && productIds.length === 0) { setToast('Select at least one product'); return }
-              const res = await fetch('/api/admin/products/discount', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ productIds, discountPercentage: pct })
-              })
-              if (res.ok) {
-                setToast('Discount applied')
-                setSelected({})
-                await reloadProducts(page)
-              } else {
-                setToast('Failed to apply discount')
-              }
-            }}
-          >Apply</button>
-          <button
-            className="px-3 py-2 rounded border hover:bg-neutral-50 dark:hover:bg-neutral-900 disabled:opacity-50"
-            disabled={deleting}
-            onClick={async () => {
-              const pickIds = filtered.filter(p => selected[p._id]).map(p => p._id)
-              const productIds = (allSelected || pickIds.length === 0) ? [] : pickIds
-              if (!allSelected && productIds.length === 0) { setToast('Select at least one product'); return }
-              if (!confirm(`Delete ${allSelected ? 'ALL on this page' : productIds.length} products?`)) return
-
-              try {
-                setDeleting(true)
-                const res = await fetch('/api/admin/products/bulk-delete', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ productIds: allSelected ? filtered.map(p => p._id) : productIds })
-                })
-                const data = await res.json().catch(() => ({}))
-                if (res.ok) {
-                  setSelected({})
-                  const count = data.deletedCount ?? productIds.length
-                  setToast(`Deleted ${count} products`)
-                  const newTotal = Math.max(0, total - count)
-                  const newTotalPages = Math.max(1, Math.ceil(newTotal / PAGE_SIZE))
-                  if (page > newTotalPages) {
-                    setPage(newTotalPages)
-                  } else {
-                    await reloadProducts(page)
-                  }
-                } else {
-                  setToast(data.error || 'Failed to delete products')
-                }
-              } catch {
-                setToast('Failed to delete products')
-              } finally {
-                setDeleting(false)
-              }
-            }}
-          >{deleting ? 'Deleting…' : 'Delete'}</button>
-        </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        {loading ? (
-          <div className="p-8 text-center text-neutral-500">Loading products…</div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center text-neutral-500 border border-neutral-200 dark:border-neutral-800 rounded-lg">
-            No products found matching the criteria.
+    <div className="max-w-3xl mx-auto space-y-4">
+      <h2 className="text-xl font-semibold">New Product</h2>
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input className="input" placeholder="Title" value={title} onChange={e => setTitle(e.target.value)} required />
+          <input className="input" placeholder="Brand" value={brand} onChange={e => setBrand(e.target.value)} required />
+          <select className="select" value={categoryId} onChange={e => setCategoryId(Number(e.target.value))} required>
+            <option value="">Select category</option>
+            {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+          <input className="input" placeholder="Price" type="number" min={0} value={price} onChange={e => setPrice(Number(e.target.value))} required />
+          <input className="input" placeholder="Sale Price (optional)" type="number" min={0} value={salePrice} onChange={e => setSalePrice(e.target.value === '' ? '' : Number(e.target.value))} />
+          <input className="input" placeholder="Stock" type="number" min={0} value={stock} onChange={e => setStock(Number(e.target.value))} required />
+          <input className="input" placeholder="Items Left (optional)" type="number" min={0} value={itemsLeft} onChange={e => setItemsLeft(e.target.value === '' ? '' : Number(e.target.value))} />
+          <input className="input" placeholder="Days Left in Expiry (optional)" type="number" min={0} value={daysLeftInExpiry} onChange={e => setDaysLeftInExpiry(e.target.value === '' ? '' : Number(e.target.value))} />
+          <div>
+            <label className="block text-sm mb-1">Best Seller</label>
+            <select className="select" value={bestSeller} onChange={e => setBestSeller(e.target.value as 'yes' | 'no')}>
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
+            </select>
           </div>
-        ) : (
-          <table className="min-w-full text-sm border border-neutral-200 dark:border-neutral-800 rounded-lg">
-            <thead className="bg-neutral-50 dark:bg-neutral-900/40">
-              <tr>
-                <th className="text-left p-3">
-                  <input type="checkbox" checked={allSelected} onChange={e => {
-                    const value = e.target.checked
-                    const next: Record<string, boolean> = {}
-                    if (value) filtered.forEach(p => { next[p._id] = true })
-                    setSelected(next)
-                  }} />
-                </th>
-                <th className="text-left p-3">Title</th>
-                <th className="text-left p-3">Brand</th>
-                <th className="text-left p-3">Category</th>
-                <th className="text-left p-3">Price</th>
-                <th className="text-left p-3">Stock</th>
-                <th className="text-left p-3">Visible</th>
-                <th className="text-left p-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p: any) => (
-                <tr key={p._id} className="border-t border-neutral-200 dark:border-neutral-800">
-                  <td className="p-3"><input type="checkbox" checked={!!selected[p._id]} onChange={e => setSelected(prev => ({ ...prev, [p._id]: e.target.checked }))} /></td>
-                  <td className="p-3">{p.title}</td>
-                  <td className="p-3">{p.brand}</td>
-                  <td className="p-3">{cats.find(c => c.id === p.categoryId)?.name ?? p.categoryId}</td>
-                  <td className="p-3">₹{p.salePrice ?? p.price}</td>
-                  <td className="p-3">{p.stock}</td>
-                  <td className="p-3">{(p.visible ?? true) ? 'Yes' : 'No'}</td>
-                  <td className="p-3">
-                    <Link href={`/products/${p._id}`} className="text-accent underline">Edit</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Pagination Controls */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-3 px-1 text-sm border-t border-neutral-200 dark:border-neutral-800">
-        <div className="text-neutral-500 dark:text-neutral-400">
-          Showing <span className="font-medium text-neutral-900 dark:text-neutral-100">{startItem}</span> to{' '}
-          <span className="font-medium text-neutral-900 dark:text-neutral-100">{endItem}</span> of{' '}
-          <span className="font-medium text-neutral-900 dark:text-neutral-100">{total}</span> products
-          {totalPages > 1 && (
-            <span className="ml-2 text-xs text-neutral-400">(Page {page} of {totalPages})</span>
-          )}
+          <input className="input" placeholder="Default Size (e.g., 50 ml)" value={baseSize} onChange={e => setBaseSize(e.target.value)} />
         </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            className="px-3 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
-            disabled={page <= 1 || loading}
-            onClick={() => changePage(page - 1)}
-          >
-            &larr; Previous
-          </button>
-
-          <div className="flex items-center gap-1">
-            {getPageNumbers().map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-2 text-neutral-400 select-none">
-                    …
-                  </span>
-                )
-              }
-              const pageNum = Number(p)
-              const isActive = pageNum === page
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium">Variants</label>
+            <button type="button" className="px-3 py-1 rounded border text-sm" onClick={() => setVariants(v => [...v, { size: '', price: '', salePrice: '' }])}>Add Variant</button>
+          </div>
+          {variants.length === 0 && (
+            <div className="text-sm text-gray-500">No variants added.</div>
+          )}
+          <div className="space-y-2">
+            {variants.map((v, i) => (
+              <div key={i} className="space-y-2 p-3 border rounded">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                  <input className="input md:col-span-3" placeholder="Size (optional)" value={v.size || ''} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, size: e.target.value } : it))} />
+                  <input className="input md:col-span-2" placeholder="MRP" type="number" min={0} value={v.price} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, price: e.target.value === '' ? '' : Number(e.target.value) } : it))} />
+                  <input className="input md:col-span-2" placeholder="Sale Price" type="number" min={0} value={v.salePrice} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, salePrice: e.target.value === '' ? '' : Number(e.target.value) } : it))} />
+                  <div className="md:col-span-4 flex items-center gap-2 min-w-0">
+                    <input className="input flex-1 min-w-0" placeholder="Image URL (optional)" value={v.image || ''} onChange={e => setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: e.target.value } : it))} />
+                    {!!v.image && (
+                      <div className="w-10 h-10 border rounded overflow-hidden shrink-0">
+                        <img src={v.image} alt="variant" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
+                  <button type="button" className="px-3 py-2 rounded border md:col-span-1" onClick={() => setVariants(arr => arr.filter((_, idx) => idx !== i))}>Remove</button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input className="w-full" type="file" onChange={async e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    try {
+                      const url = await uploadFile(f);
+                      setVariants(arr => arr.map((it, idx) => idx === i ? { ...it, image: url } : it));
+                    } catch { /* ignore */ }
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-xs text-gray-500">Each variant has its own MRP and Sale Price. Size and image are optional.</div>
+        </div>
+        <textarea className="w-full textarea" placeholder="Description" rows={5} value={description} onChange={e => setDescription(e.target.value)} />
+        <div>
+          <label className="block text-sm mb-1">Images</label>
+          <div className="flex gap-2 items-center">
+            <input
+              className="input flex-1"
+              placeholder="Paste direct image URL (jpg, png, webp) and click Add"
+              value={imageUrl}
+              onChange={e => setImageUrl(e.target.value)}
+            />
+            <button
+              type="button"
+              className="px-3 py-2 rounded border hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              onClick={() => {
+                const u = imageUrl.trim()
+                if (!u) return
+                if (u.includes('google.com/search') || u.includes('bing.com/search')) {
+                  setError('Please enter a direct image URL (e.g. ending with .jpg, .png, etc.), not a Google search results page link.')
+                  return
+                }
+                setImages(prev => [...prev, u])
+                setImageUrl('')
+                setError(null)
+              }}
+            >
+              Add
+            </button>
+          </div>
+          <div className="mt-2">
+            <input type="file" accept="image/*" onChange={handleUpload} />
+          </div>
+          <div className="flex gap-3 mt-3 flex-wrap">
+            {images.map((url, i) => {
+              const fullUrl = url.startsWith('http')
+                ? url
+                : `${process.env.NEXT_PUBLIC_API_BASE || 'https://api.manokamnabeautycentre.org'}${url.startsWith('/') ? '' : '/'}${url}`
               return (
-                <button
-                  key={pageNum}
-                  className={`min-w-[34px] px-2.5 py-1.5 rounded text-sm transition ${
-                    isActive
-                      ? 'bg-black text-white dark:bg-white dark:text-black font-semibold'
-                      : 'border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800'
-                  } disabled:opacity-40`}
-                  disabled={loading}
-                  onClick={() => changePage(pageNum)}
-                >
-                  {pageNum}
-                </button>
+                <div key={i} className="relative group w-24 h-24 border rounded overflow-hidden bg-white shrink-0 shadow-sm">
+                  <img
+                    src={fullUrl}
+                    alt={`Product image ${i + 1}`}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?q=80&w=200&auto=format&fit=crop'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-80 hover:opacity-100 transition shadow"
+                    title="Remove image"
+                    onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                  >
+                    &times;
+                  </button>
+                </div>
               )
             })}
           </div>
-
-          <button
-            className="px-3 py-1.5 rounded border border-neutral-300 dark:border-neutral-700 hover:bg-neutral-100 dark:hover:bg-neutral-800 disabled:opacity-40 disabled:cursor-not-allowed transition text-sm"
-            disabled={page >= totalPages || loading}
-            onClick={() => changePage(page + 1)}
-          >
-            Next &rarr;
-          </button>
         </div>
-      </div>
+        {error && <div className="text-red-600 text-sm">{error}</div>}
+        <div className="flex gap-2">
+          <button disabled={loading} className="px-4 py-2 rounded bg-black text-white disabled:opacity-50">{loading ? 'Saving…' : 'Save'}</button>
+          <button type="button" className="px-4 py-2 rounded border" onClick={() => router.back()}>Cancel</button>
+        </div>
+      </form>
     </div>
   )
 }
-
